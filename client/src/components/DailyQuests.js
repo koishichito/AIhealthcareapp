@@ -12,16 +12,18 @@ const DailyQuests = ({ quests }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    // WebSocket接続の初期化
+    let isSubscribed = true;
+
     const initializeWebSocket = async () => {
       try {
         await websocketService.connect();
         
-        // クエスト検証結果のハンドラーを登録
-        websocketService.subscribe('quest_validation_result', (payload) => {
-          const { questId, isValid, message } = payload;
-          handleValidationResult(questId, isValid, message);
-        });
+        if (isSubscribed) {
+          websocketService.subscribe('quest_validation_result', (payload) => {
+            const { questId, isValid, message } = payload;
+            handleValidationResult(questId, isValid, message);
+          });
+        }
       } catch (error) {
         console.error('WebSocket connection failed:', error);
       }
@@ -30,6 +32,7 @@ const DailyQuests = ({ quests }) => {
     initializeWebSocket();
 
     return () => {
+      isSubscribed = false;
       websocketService.disconnect();
     };
   }, []);

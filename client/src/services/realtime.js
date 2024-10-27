@@ -26,13 +26,29 @@ export class RealtimeService {
     });
   }
 
+  // connect メソッドを以下のコードに置き換え
   async connect() {
-    await this.client.connect();
-    await this.client.waitForSessionCreated();
+    if (this.client && this.client.isConnected()) {
+      console.log('Already connected');
+      return;
+    }
+    
+    try {
+      await this.client.connect();
+      await this.client.waitForSessionCreated();
+      console.log('WebSocket connection established');
+    } catch (error) {
+      console.error('Connection error:', error);
+      throw error;
+    }
   }
 
+  // disconnect メソッドを以下のコードに置き換え
   disconnect() {
-    this.client.disconnect();
+    if (this.client && this.client.isConnected()) {
+      this.client.disconnect();
+      console.log('WebSocket connection closed');
+    }
   }
 
   async validateQuest(questType, userResponse) {
