@@ -39,8 +39,10 @@ class WebSocketServer {
       ws.on('message', async (message) => {
         try {
           const event = JSON.parse(message);
+          console.log('Received event:', event.type); // イベントタイプをログ出力
           await this.handleEvent(ws, event);
         } catch (error) {
+          console.error('Error handling message:', error);
           this.sendError(ws, error.message);
         }
       });
@@ -106,6 +108,10 @@ class WebSocketServer {
         await this.handleResponseCreate(ws, event);
         break;
 
+      case 'analyze_health':
+        await this.handleHealthAnalysis(ws, event);
+        break;
+
       default:
         console.warn('Unknown event type:', event.type);
     }
@@ -168,6 +174,48 @@ class WebSocketServer {
       }
     };
     ws.send(JSON.stringify(errorEvent));
+  }
+
+  // 新しいメソッドを追加
+  async handleHealthAnalysis(ws, event) {
+    try {
+      const { audioData } = event;
+      
+      if (!audioData) {
+        throw new Error('Audio data is missing');
+      }
+
+      // 音声データをバイナリ形式に変換
+      const audioBuffer = Buffer.from(audioData, 'base64');
+
+      // 音声の文字起こしを実行
+      const transcription = await this.audioTranscriptionService.transcribeAudio(audioBuffer);
+
+      // クエストの検証を実行
+      const questData = {
+        questType: '乾燥対策', // クエストタイプを適切に設定してください
+        text: transcription
+      };
+      const validationResult = await this.questValidationService.validateQuest(questData.questType, questData.text);
+
+      // 健康レベルとアドバイスを決定
+      const healthLevel = validationResult.isValid ? 3 : 1; // 例: 有効ならレベル3、無効ならレベル1
+      const healthAdvice = validationResult.isValid ? '素晴らしい対策です！引き続き健康管理を頑張りましょう。' : 'もう一度クエストに取り組んでみてください。';
+
+      // クライアントに結果を送信
+      const response = {
+        event_id: this.generateEventId(),
+        type: 'health_assessment',
+        payload: {
+          level: healthLevel,
+          advice: healthAdvice
+        }
+      };
+
+      ws.send(JSON.stringify(response));
+    } catch (error) {
+      this.sendError(ws, error.message);
+    }
   }
 }
 
